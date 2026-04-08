@@ -51,10 +51,12 @@
 ### 3) Prisma + MongoDB connection flow
 
 1. Prisma reads `DATABASE_URL` from `.env` and `prisma.config.ts`.
-2. `prisma/schema.prisma` defines:
-   - datasource `db` with provider `mongodb`
-   - `User` model (`id`, `email`, `password`, `name`, `birthYear`, timestamps)
-3. `PrismaService` extends `PrismaClient`, so services can call:
+2. Prisma uses a multi-file schema setup:
+   - `prisma.config.ts` points to `./prisma/schema`
+   - `prisma/schema/schema.prisma` contains shared Prisma blocks (`generator`, `datasource`)
+   - `prisma/schema/user.prisma` contains the `User` model (`id`, `email`, `password`, `name`, `birthYear`, timestamps)
+3. `npx prisma generate` loads the whole `prisma/schema` directory and merges all `.prisma` files into one schema at generation time.
+4. `PrismaService` extends `PrismaClient`, so services can call:
    - `this.prisma.user.create(...)`
    - `this.prisma.user.findUnique(...)`
    - `this.prisma.user.findMany(...)`
