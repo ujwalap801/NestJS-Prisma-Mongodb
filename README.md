@@ -25,6 +25,121 @@
 
 [Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
+## Application Flow (End to End)
+
+### 1) Startup flow
+
+1. `src/main.ts` bootstraps Nest with `AppModule`.
+2. `AppModule` imports:
+   - `PrismaModule`
+   - `UserModule`
+   - `AuthModule`
+3. `PrismaService` runs `onModuleInit()` and opens DB connection with `this.$connect()`.
+4. API listens on `PORT` from env, or defaults to `3000`.
+
+### 2) Module and service wiring
+
+- `PrismaModule` is marked `@Global()`, so `PrismaService` is available app-wide.
+- `UserService` injects `PrismaService` and handles DB operations for `User`.
+- `UserModule` exports `UserService`.
+- `AuthModule` imports `UserModule` and `JwtModule`.
+- `AuthService` injects:
+  - `UserService` (for user lookup/create)
+  - `JwtService` (for access token generation)
+- `AuthController` exposes auth endpoints and forwards requests to `AuthService`.
+
+### 3) Prisma + MongoDB connection flow
+
+1. Prisma reads `DATABASE_URL` from `.env` and `prisma.config.ts`.
+2. `prisma/schema.prisma` defines:
+   - datasource `db` with provider `mongodb`
+   - `User` model (`id`, `email`, `password`, `name`, `birthYear`, timestamps)
+3. `PrismaService` extends `PrismaClient`, so services can call:
+   - `this.prisma.user.create(...)`
+   - `this.prisma.user.findUnique(...)`
+   - `this.prisma.user.findMany(...)`
+
+### 4) Auth request flow
+
+#### `POST /auth/signup`
+
+1. `AuthController.signUp()` receives `email` and `password`.
+2. `AuthService.signUp()` hashes password using `bcrypt`.
+3. `AuthService` calls `UserService.createUser(...)`.
+4. `UserService` writes user to MongoDB through Prisma.
+
+#### `POST /auth/login`
+
+1. `AuthController.signIn()` receives credentials.
+2. `AuthService.signIn()` fetches user via `UserService.findUserByEmail(email)`.
+3. Password is validated with `bcrypt.compare(...)`.
+4. On success, JWT payload is created (`sub`, `email`).
+5. `JwtService.signAsync(...)` returns `access_token`.
+
+## Environment variables
+
+Create/update `.env`:
+
+```bash
+DATABASE_URL="mongodb://127.0.0.1:27017/testing1212?replicaSet=rs0"
+JWT_SECRET="your-very-strong-secret"
+PORT=3000
+```
+
+## Commands to run the app
+
+From project root:
+
+```bash
+# 1) install dependencies
+npm install
+
+# 2) generate Prisma client
+npx prisma generate
+
+# 3) (optional) validate Prisma schema
+npx prisma validate
+
+# 4) start app in watch mode
+npm run start:dev
+```
+
+Other useful commands:
+
+```bash
+# normal run
+npm run start
+
+# build + production run
+npm run build
+npm run start:prod
+
+# tests
+npm run test
+npm run test:e2e
+npm run test:cov
+
+# lint
+npm run lint
+
+# inspect database in browser
+npx prisma studio
+```
+
+## Quick API test commands
+
+```bash
+# Signup
+curl -X POST http://localhost:3000/auth/signup \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"test@example.com\",\"password\":\"Pass@123\"}"
+
+# Login
+curl -X POST http://localhost:3000/auth/login \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"test@example.com\",\"password\":\"Pass@123\"}"
+```
+
 ## Project setup
 
 ```bash
